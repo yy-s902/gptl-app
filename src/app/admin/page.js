@@ -1,105 +1,31 @@
 'use client';
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { db } from "@/lib/firebase";
-import { collection, getDocs } from "firebase/firestore";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-} from "recharts";
-import questions from "@/data/questions.json";
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function AdminPage() {
-  const [responses, setResponses] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [authorized, setAuthorized] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    const auth = sessionStorage.getItem("gptl-auth");
-    if (auth === "ok") {
+    const auth = sessionStorage.getItem('gptl-auth');
+    if (auth === 'ok') {
       setAuthorized(true);
     } else {
-      router.push("/login");
+      router.push('/login');
     }
   }, [router]);
 
-  useEffect(() => {
-    if (!authorized) return;
-
-    const fetchData = async () => {
-      const snapshot = await getDocs(collection(db, "responses"));
-      const data = snapshot.docs.map((doc) => doc.data());
-      setResponses(data);
-      setLoading(false);
-    };
-
-    fetchData();
-  }, [authorized]);
-
-  const getAverageData = () => {
-    return questions.map((q, i) => {
-      const values = responses.map((r) => r.answers[i]).filter((v) => typeof v === "number");
-      const avg = values.length > 0 ? values.reduce((sum, v) => sum + v, 0) / values.length : 0;
-      return {
-        question: q.ja,
-        average: parseFloat(avg.toFixed(2)),
-      };
-    });
-  };
-
-  if (!authorized) return null; // ログインしていない間は何も表示しない
+  if (!authorized) return null;
 
   return (
-    <main className="p-8">
-      <h1 className="text-2xl font-bold mb-6">アンケート結果（管理画面）</h1>
-
-      {loading ? (
-        <p>読み込み中...</p>
-      ) : (
-        <>
-          <section className="mb-12">
-            <h2 className="text-lg font-semibold mb-4">平均値（棒グラフ）</h2>
-            <div style={{ width: "100%", height: 300 }}>
-              <ResponsiveContainer>
-                <BarChart data={getAverageData()} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="question" tick={{ fontSize: 12 }} />
-                  <YAxis domain={[0, 5]} allowDecimals={false} />
-                  <Tooltip />
-                  <Bar dataKey="average" fill="#3b82f6" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </section>
-
-          <section>
-            <h2 className="text-lg font-semibold mb-4">全回答一覧</h2>
-            <ul className="space-y-4">
-              {responses.map((r, i) => (
-                <li key={i} className="border p-4 rounded shadow">
-                  <h3 className="font-semibold">回答 {i + 1}</h3>
-                  <ul className="mt-2 text-sm list-disc list-inside">
-                    {r.answers.map((ans, j) => (
-                      <li key={j}>
-                        {questions[j] ? `${questions[j].ja} → ${ans}` : `質問 ${j + 1} → ${ans}`}
-                      </li>
-                    ))}
-                  </ul>
-                </li>
-              ))}
-            </ul>
-          </section>
-        </>
-      )}
+    <main className="p-8 text-center">
+      <h1 className="text-2xl font-bold mb-6">管理画面</h1>
+      <p>ここから質問の編集や集計ができます。</p>
+      <div className="mt-6 space-x-4">
+        <a href="/admin/questions" className="text-blue-500 underline">質問を編集</a>
+        <a href="/admin/answers" className="text-blue-500 underline">回答を確認</a>
+      </div>
     </main>
   );
 }
-
-
