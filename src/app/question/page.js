@@ -1,121 +1,156 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
+import { useEffect, useState, useRef } from "react";
+import { db } from "@/lib/firebase";
+import { collection, addDoc, getDocs, Timestamp } from "firebase/firestore";
 
 export default function QuestionPage() {
-  const questions = [
-    "今の生活にどのくらい満足していますか？",
-    "支援活動についてどう思いますか？",
-    "食料や水は足りていますか？"
-  ];
-
+  const [questions, setQuestions] = useState([]);
   const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState([]);
   const [selected, setSelected] = useState(null);
-  const [listening, setListening] = useState(false);
+  const [answers, setAnswers] = useState([]);
+  const [finished, setFinished] = useState(false);
+  const [language, setLanguage] = useState("ja");
 
-  const currentQuestion = questions[step];
+  const recognitionRef = useRef(null);
+  const currentQuestion = questions[step]?.[language] || "";
 
-  // 読み上げ
+  // 質問を Firestore から取得
   useEffect(() => {
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      const utterance = new SpeechSynthesisUtterance(currentQuestion);
-      utterance.lang = "ja-JP";
-      speechSynthesis.cancel();
-      speechSynthesis.speak(utterance);
-    }
-  }, [step]);
+    const fetchQuestions = async () => {
+      const snapshot = await getDocs(collection(db, "questions"));
+      const data = snapshot.docs.map((doc) => doc.data());
+      setQuestions(data);
+    };
+    fetchQuestions();
+  }, []);
 
-  // 音声認識スタート
-  const handleVoiceInput = () => {
-    if (typeof window === "undefined") return;
+  // 音声読み上げ
+  useEffect(() => {
+    if (!currentQuestion) return;
+    const utterance = new SpeechSynthesisUtterance(currentQuestion);
+    utterance.lang = language === "ja" ? "ja-JP" : "en-US";
+    speechSynthesis.cancel();
+    speechSynthesis.speak(utterance);
+  }, [currentQuestion, language]);
 
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("このブラウザでは音声入力に対応していません。");
-      return;
-    }
+  // 音声入力のセットアップ
+  const startRecognition = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
 
     const recognition = new SpeechRecognition();
-    recognition.lang = "ja-JP";
+    recognition.lang = language === "ja" ? "ja-JP" : "en-US";
     recognition.interimResults = false;
-    recognition.continuous = false;
-
-    recognition.start();
-    setListening(true);
+    recognition.maxAlternatives = 1;
 
     recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      const number = parseInt(transcript.match(/[1-5]/));
-      if (number >= 1 && number <= 5) {
-        setSelected(number);
-      } else {
-        alert("1〜5の数字を言ってください");
+      const result = event.results[0][0].transcript;
+      const num = parseInt(result);
+      if (num >= 1 && num <= 5) {
+        setSelected(num);
       }
-      setListening(false);
     };
 
-    recognition.onerror = () => {
-      alert("音声認識エラーが発生しました");
-      setListening(false);
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error:", event.error);
     };
+
+    recognition.start();
+    recognitionRef.current = recognition;
   };
 
-  const handleNext = () => {
-    setAnswers([...answers, selected]);
+  const stopRecognition = () => {
+    recognitionRef.current?.stop();
+  };
+
+  const handleNext = async () => {
+    stopRecognition();
+    const newAnswers = [...answers, selected];
+    setAnswers(newAnswers);
+
     if (step < questions.length - 1) {
       setStep(step + 1);
       setSelected(null);
     } else {
-      alert("アンケート完了！");
+      try {
+        await addDoc(collection(db, "responses"), {
+          answers: newAnswers,
+          createdAt: Timestamp.now()
+        });
+      } catch (err) {
+        console.error("保存失敗:", err);
+      }
+      setFinished(true);
     }
   };
 
   return (
     <main className="p-8 text-center">
-      <h1 className="text-xl font-bold mb-4">アンケート（{step + 1} / {questions.length}）</h1>
-      <p className="mb-6">{currentQuestion}</p>
-
-      <div className="flex justify-center gap-4 mb-6">
-        {[1, 2, 3, 4, 5].map((num) => (
-          <button
-            key={num}
-            className={`px-4 py-2 rounded border w-12 ${
-              selected === num
-                ? "bg-blue-500 text-white"
-                : "bg-gray-100 hover:bg-gray-200"
-            }`}
-            onClick={() => setSelected(num)}
-          >
-            {num}
-          </button>
-        ))}
+      {/* 言語切り替え */}
+      <div className="mb-6">
+        <button onClick={() => setLanguage("ja")} className={`px-4 py-2 rounded-l ${language === "ja" ? "bg-blue-500 text-white" : "bg-gray-200"}`}>日本語</button>
+        <button onClick={() => setLanguage("en")} className={`px-4 py-2 rounded-r ${language === "en" ? "bg-blue-500 text-white" : "bg-gray-200"}`}>English</button>
       </div>
 
-      <div className="flex flex-col items-center gap-4">
-        <button
-          onClick={handleVoiceInput}
-          className="px-4 py-2 bg-yellow-400 text-black rounded"
-          disabled={listening}
-        >
-          {listening ? "認識中…" : "マイクで答える"}
-        </button>
+      {!finished ? (
+        <>
+          <h1 className="text-xl font-bold mb-4">
+            {language === "ja" ? "アンケート" : "Survey"}（{step + 1} / {questions.length}）
+          </h1>
+          <p className="mb-6">{currentQuestion}</p>
 
-        <button
-          onClick={handleNext}
-          disabled={selected === null}
-          className={`px-6 py-2 rounded ${
-            selected === null
-              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-              : "bg-green-500 text-white hover:bg-green-600"
-          }`}
-        >
-          次へ
-        </button>
-      </div>
+          <div className="flex justify-center gap-4 mb-6">
+            {[1, 2, 3, 4, 5].map((num) => (
+              <button
+                key={num}
+                className={`px-4 py-2 rounded border w-12 ${
+                  selected === num ? "bg-blue-500 text-white" : "bg-gray-100 hover:bg-gray-200"
+                }`}
+                onClick={() => setSelected(num)}
+              >
+                {num}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex justify-center gap-4 mb-6">
+            <button
+              onClick={startRecognition}
+              className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600"
+            >
+              🎤 {language === "ja" ? "音声入力" : "Speak"}
+            </button>
+            <button
+              onClick={handleNext}
+              disabled={selected === null}
+              className={`px-6 py-2 rounded ${
+                selected === null ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-green-500 text-white hover:bg-green-600"
+              }`}
+            >
+              {language === "ja" ? "次へ" : "Next"}
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="text-xl text-green-700 font-semibold mb-6">
+            {language === "ja" ? "ご協力ありがとうございました！" : "Thank you for your response!"}
+          </p>
+          <h2 className="text-lg font-bold mb-2">{language === "ja" ? "あなたの回答" : "Your Answers"}</h2>
+          <ul className="text-left inline-block">
+            {questions.map((q, i) => (
+              <li key={i} className="mb-4">
+                <span className="font-semibold">
+                  {i + 1}. {q[language]}
+                </span>
+                <br />
+                → {language === "ja" ? "回答" : "Answer"}: {answers[i]}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </main>
   );
 }
-
-  
