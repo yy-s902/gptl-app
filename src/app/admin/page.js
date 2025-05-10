@@ -1,6 +1,7 @@
-"use client";
+'use client';
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import {
@@ -17,8 +18,21 @@ import questions from "@/data/questions.json";
 export default function AdminPage() {
   const [responses, setResponses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [authorized, setAuthorized] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
+    const auth = sessionStorage.getItem("gptl-auth");
+    if (auth === "ok") {
+      setAuthorized(true);
+    } else {
+      router.push("/login");
+    }
+  }, [router]);
+
+  useEffect(() => {
+    if (!authorized) return;
+
     const fetchData = async () => {
       const snapshot = await getDocs(collection(db, "responses"));
       const data = snapshot.docs.map((doc) => doc.data());
@@ -27,7 +41,7 @@ export default function AdminPage() {
     };
 
     fetchData();
-  }, []);
+  }, [authorized]);
 
   const getAverageData = () => {
     return questions.map((q, i) => {
@@ -39,6 +53,8 @@ export default function AdminPage() {
       };
     });
   };
+
+  if (!authorized) return null; // ログインしていない間は何も表示しない
 
   return (
     <main className="p-8">
