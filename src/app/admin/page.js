@@ -10,7 +10,7 @@ export default function AdminPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (sessionStorage.getItem('gptl-auth') === 'ok') {
+    if (localStorage.getItem('gptl-auth') === 'ok') {
       setAuthorized(true);
     }
   }, []);
@@ -18,7 +18,7 @@ export default function AdminPage() {
   const handleLogin = (e) => {
     e.preventDefault();
     if (password === 'gptladmin') {
-      sessionStorage.setItem('gptl-auth', 'ok');
+      localStorage.setItem('gptl-auth', 'ok');
       setAuthorized(true);
     } else {
       setError('パスワードが違います');
