@@ -1,6 +1,7 @@
-"use client";
+'use client';
 
 import { useEffect, useState } from "react";
+import { useRouter } from 'next/navigation';
 import { db } from "@/lib/firebase";
 import {
   collection,
@@ -11,11 +12,25 @@ import {
 } from "firebase/firestore";
 
 export default function QuestionAdminPage() {
+  const [authorized, setAuthorized] = useState(false);
+  const [loadingAuth, setLoadingAuth] = useState(true);
   const [questions, setQuestions] = useState([]);
   const [form, setForm] = useState({ ja: "", en: "" });
   const [loading, setLoading] = useState(true);
 
+  const router = useRouter();
   const ref = collection(db, "questions");
+
+  // 🔐 認証チェック
+  useEffect(() => {
+    const auth = sessionStorage.getItem('gptl-auth');
+    if (auth === 'ok') {
+      setAuthorized(true);
+    } else {
+      router.push('/admin'); // ← loginが統合されたadminへ戻す
+    }
+    setLoadingAuth(false);
+  }, [router]);
 
   const fetchQuestions = async () => {
     const snapshot = await getDocs(ref);
@@ -25,8 +40,10 @@ export default function QuestionAdminPage() {
   };
 
   useEffect(() => {
-    fetchQuestions();
-  }, []);
+    if (authorized) {
+      fetchQuestions();
+    }
+  }, [authorized]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -44,6 +61,9 @@ export default function QuestionAdminPage() {
     await deleteDoc(doc(db, "questions", id));
     fetchQuestions();
   };
+
+  if (loadingAuth) return null;
+  if (!authorized) return null;
 
   return (
     <main className="p-8">
