@@ -21,13 +21,13 @@ export default function QuestionAdminPage() {
   const router = useRouter();
   const ref = collection(db, "questions");
 
-  // 🔐 認証チェック
+  // 🔐 localStorageベースのログイン状態チェック
   useEffect(() => {
-    const auth = sessionStorage.getItem('gptl-auth');
+    const auth = localStorage.getItem('gptl-auth');
     if (auth === 'ok') {
       setAuthorized(true);
     } else {
-      router.push('/admin'); // ← loginが統合されたadminへ戻す
+      router.push('/admin'); // 未ログインならadminトップに戻す
     }
     setLoadingAuth(false);
   }, [router]);
@@ -62,6 +62,7 @@ export default function QuestionAdminPage() {
     fetchQuestions();
   };
 
+  // ログインチェック中は何も表示しない
   if (loadingAuth) return null;
   if (!authorized) return null;
 
