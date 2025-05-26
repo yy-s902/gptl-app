@@ -1,13 +1,16 @@
-"use client";
+'use client';
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { db } from "@/lib/firebase";
-import { collection, addDoc, Timestamp, getDocs } from "firebase/firestore";
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { db } from '@/lib/firebase';
+import { collection, addDoc, Timestamp, getDocs } from 'firebase/firestore';
 
 export default function QuestionPage() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const [questions, setQuestions] = useState([]);
-  const [language, setLanguage] = useState("ja");
+  const [language, setLanguage] = useState('ja');
   const [step, setStep] = useState(0);
   const [selected, setSelected] = useState(null);
   const [answers, setAnswers] = useState([]);
@@ -16,36 +19,36 @@ export default function QuestionPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const auth = sessionStorage.getItem("gptl-answer");
-    if (auth !== "ok") {
-      router.push("/answer-login");
+    const auth = localStorage.getItem('gptl-answer');
+    if (auth === 'ok') {
+      setIsLoggedIn(true);
     }
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     const fetchQuestions = async () => {
-      const snapshot = await getDocs(collection(db, "questions"));
+      const snapshot = await getDocs(collection(db, 'questions'));
       const data = snapshot.docs.map((doc) => doc.data());
       setQuestions(data);
     };
     fetchQuestions();
   }, []);
 
-  const currentQuestion = questions[step]?.[language] || "";
+  const currentQuestion = questions[step]?.[language] || '';
 
   useEffect(() => {
-    if (!currentQuestion) return;
+    if (!currentQuestion || !isLoggedIn) return;
     const utterance = new SpeechSynthesisUtterance(currentQuestion);
-    utterance.lang = language === "ja" ? "ja-JP" : "en-US";
+    utterance.lang = language === 'ja' ? 'ja-JP' : 'en-US';
     speechSynthesis.cancel();
     speechSynthesis.speak(utterance);
-  }, [step, currentQuestion, language]);
+  }, [step, currentQuestion, language, isLoggedIn]);
 
   useEffect(() => {
-    if (!('webkitSpeechRecognition' in window)) return;
+    if (!isLoggedIn || !('webkitSpeechRecognition' in window)) return;
     const SpeechRecognition = window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
-    recognition.lang = language === "ja" ? "ja-JP" : "en-US";
+    recognition.lang = language === 'ja' ? 'ja-JP' : 'en-US';
     recognition.continuous = false;
     recognition.interimResults = false;
 
@@ -58,7 +61,7 @@ export default function QuestionPage() {
     };
 
     recognition.onerror = (event) => {
-      console.error("Speech recognition error:", event.error);
+      console.error('Speech recognition error:', event.error);
     };
 
     recognitionRef.current = recognition;
@@ -67,7 +70,17 @@ export default function QuestionPage() {
     return () => {
       recognition.stop();
     };
-  }, [step, language]);
+  }, [step, language, isLoggedIn]);
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (password === 'GPTLanswer') {
+      localStorage.setItem('gptl-answer', 'ok');
+      setIsLoggedIn(true);
+    } else {
+      setError('パスワードが違います');
+    }
+  };
 
   const handleNext = async () => {
     const newAnswers = [...answers, selected];
@@ -78,33 +91,57 @@ export default function QuestionPage() {
       setSelected(null);
     } else {
       try {
-        await addDoc(collection(db, "responses"), {
+        await addDoc(collection(db, 'responses'), {
           answers: newAnswers,
           createdAt: Timestamp.now(),
         });
-        console.log("保存成功");
+        console.log('保存成功');
       } catch (error) {
-        console.error("保存失敗:", error);
+        console.error('保存失敗:', error);
       }
       setFinished(true);
     }
   };
 
+  if (!isLoggedIn) {
+    return (
+      <main className="p-8 text-center">
+        <h1 className="text-xl font-bold mb-4">アンケートに進むにはパスワードを入力してください</h1>
+        <form onSubmit={handleLogin} className="space-y-4 max-w-xs mx-auto">
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="パスワード"
+            className="border px-4 py-2 w-full rounded"
+          />
+          {error && <p className="text-red-500">{error}</p>}
+          <button
+            type="submit"
+            className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700"
+          >
+            はじめる
+          </button>
+        </form>
+      </main>
+    );
+  }
+
   return (
     <main className="p-8 text-center">
       <div className="mb-6">
         <button
-          onClick={() => setLanguage("ja")}
+          onClick={() => setLanguage('ja')}
           className={`px-4 py-2 rounded-l ${
-            language === "ja" ? "bg-blue-500 text-white" : "bg-gray-200 hover:bg-gray-300"
+            language === 'ja' ? 'bg-blue-500 text-white' : 'bg-gray-200 hover:bg-gray-300'
           }`}
         >
           日本語
         </button>
         <button
-          onClick={() => setLanguage("en")}
+          onClick={() => setLanguage('en')}
           className={`px-4 py-2 rounded-r ${
-            language === "en" ? "bg-blue-500 text-white" : "bg-gray-200 hover:bg-gray-300"
+            language === 'en' ? 'bg-blue-500 text-white' : 'bg-gray-200 hover:bg-gray-300'
           }`}
         >
           English
@@ -114,7 +151,7 @@ export default function QuestionPage() {
       {!finished ? (
         <>
           <h1 className="text-xl font-bold mb-4">
-            {language === "ja" ? "アンケート" : "Survey"}（{step + 1} / {questions.length}）
+            {language === 'ja' ? 'アンケート' : 'Survey'}（{step + 1} / {questions.length}）
           </h1>
           <p className="mb-6">{currentQuestion}</p>
 
@@ -124,8 +161,8 @@ export default function QuestionPage() {
                 key={num}
                 className={`px-4 py-2 rounded border w-12 ${
                   selected === num
-                    ? "bg-blue-500 text-white"
-                    : "bg-gray-100 hover:bg-gray-200"
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-100 hover:bg-gray-200'
                 }`}
                 onClick={() => setSelected(num)}
               >
@@ -139,20 +176,20 @@ export default function QuestionPage() {
             disabled={selected === null}
             className={`mt-4 px-6 py-2 rounded ${
               selected === null
-                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                : "bg-green-500 text-white hover:bg-green-600"
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-green-500 text-white hover:bg-green-600'
             }`}
           >
-            {language === "ja" ? "次へ" : "Next"}
+            {language === 'ja' ? '次へ' : 'Next'}
           </button>
         </>
       ) : (
         <>
           <p className="text-xl text-green-700 font-semibold mb-6">
-            {language === "ja" ? "ご協力ありがとうございました！" : "Thank you for your response!"}
+            {language === 'ja' ? 'ご協力ありがとうございました！' : 'Thank you for your response!'}
           </p>
           <h2 className="text-lg font-bold mb-2">
-            {language === "ja" ? "あなたの回答" : "Your Answers"}
+            {language === 'ja' ? 'あなたの回答' : 'Your Answers'}
           </h2>
           <ul className="text-left inline-block">
             {questions.map((q, i) => (
@@ -160,7 +197,7 @@ export default function QuestionPage() {
                 <span className="font-semibold">
                   {i + 1}. {q[language]}
                 </span>
-                <br />→ {language === "ja" ? "回答" : "Answer"}: {answers[i]}
+                <br />→ {language === 'ja' ? '回答' : 'Answer'}: {answers[i]}
               </li>
             ))}
           </ul>
@@ -169,5 +206,3 @@ export default function QuestionPage() {
     </main>
   );
 }
-
-
