@@ -4,7 +4,8 @@ import { useState } from "react";
 import QRCode from "react-qr-code";
 
 export default function QRPage() {
-  const [url, setUrl] = useState("http://localhost:3000/question");
+  const [url, setUrl] = useState("https://gptl-app.vercel.app/question
+");
 
   return (
     <main className="p-8 text-center">
