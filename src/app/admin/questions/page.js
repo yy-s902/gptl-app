@@ -62,9 +62,7 @@ export default function QuestionAdminPage() {
     fetchQuestions();
   };
 
-  // ログインチェック中は何も表示しない
-  if (loadingAuth) return null;
-  if (!authorized) return null;
+  if (loadingAuth || !authorized) return null;
 
   return (
     <main className="p-8">
