@@ -49,10 +49,12 @@ export default function AdminPage() {
   return (
     <main className="p-8 text-center">
       <h1 className="text-2xl font-bold mb-6">管理画面</h1>
-      <p>ここから質問の編集や集計ができます。</p>
+      <p>ここから各種管理操作が可能です。</p>
       <div className="mt-6 space-y-4 flex flex-col items-center">
         <a href="/admin/questions" className="text-blue-500 underline text-lg">📝 質問を編集</a>
         <a href="/admin/answers" className="text-blue-500 underline text-lg">📊 回答を確認</a>
+        <a href="/admin/export" className="text-blue-500 underline text-lg">📁 回答のエクスポート</a>
+        <a href="/admin/qr" className="text-blue-500 underline text-lg">🔗 QRコード表示</a>
       </div>
     </main>
   );
