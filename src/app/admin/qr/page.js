@@ -1,25 +1,33 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import QRCode from "react-qr-code";
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import QRCode from 'qrcode.react';
 
-export default function QRPage() {
-  const [url, setUrl] = useState("https://gptl-app.vercel.app/question
-");
+export default function QRCodePage() {
+  const [authorized, setAuthorized] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const router = useRouter();
+
+  useEffect(() => {
+    const auth = localStorage.getItem('gptl-auth');
+    if (auth === 'ok') {
+      setAuthorized(true);
+    } else {
+      router.push('/admin/login');
+    }
+    setChecking(false);
+  }, [router]);
+
+  if (checking || !authorized) return null;
+
+  const surveyUrl = 'https://gptl-app.vercel.app/question';
 
   return (
     <main className="p-8 text-center">
-      <h1 className="text-2xl font-bold mb-4">アンケートQRコード生成</h1>
-      <input
-        type="text"
-        value={url}
-        onChange={(e) => setUrl(e.target.value)}
-        className="w-full max-w-lg border px-4 py-2 rounded mb-6"
-      />
-      <div className="inline-block bg-white p-4 border rounded">
-        <QRCode value={url} size={200} />
-      </div>
-      <p className="mt-4 text-sm text-gray-500">上のQRコードをスマホで読み取るとアンケートページに移動できます。</p>
+      <h1 className="text-xl font-bold mb-4">アンケートQRコード</h1>
+      <QRCode value={surveyUrl} size={256} />
+      <p className="mt-4 text-gray-600">{surveyUrl}</p>
     </main>
   );
 }
