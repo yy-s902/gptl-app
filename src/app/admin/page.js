@@ -9,11 +9,13 @@ export default function AdminPage() {
   const [error, setError] = useState('');
   const router = useRouter();
 
-  useEffect(() => {
-    if (localStorage.getItem('gptl-auth') === 'ok') {
-      setAuthorized(true);
-    }
-  }, []);
+useEffect(() => {
+  const auth = localStorage.getItem('gptl-auth');
+  if (auth !== 'ok') {
+    router.push('/admin/login'); 
+  }
+}, []);
+
 
   const handleLogin = (e) => {
     e.preventDefault();
