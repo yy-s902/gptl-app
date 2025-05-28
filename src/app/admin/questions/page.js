@@ -1,36 +1,41 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { db } from "@/lib/firebase";
+import { db } from '@/lib/firebase';
 import {
   collection,
   addDoc,
   getDocs,
   deleteDoc,
   doc,
-} from "firebase/firestore";
+} from 'firebase/firestore';
 
 export default function QuestionAdminPage() {
   const [authorized, setAuthorized] = useState(false);
-  const [loadingAuth, setLoadingAuth] = useState(true);
-  const [questions, setQuestions] = useState([]);
-  const [form, setForm] = useState({ ja: "", en: "" });
-  const [loading, setLoading] = useState(true);
-
+  const [checking, setChecking] = useState(true); // 初期チェック中フラグ
   const router = useRouter();
-  const ref = collection(db, "questions");
+  const [questions, setQuestions] = useState([]);
+  const [form, setForm] = useState({ ja: '', en: '' });
+  const [loading, setLoading] = useState(true);
+  const ref = collection(db, 'questions');
 
-  // 🔐 localStorageベースのログイン状態チェック
+  // 初回だけ認証状態をチェック（リダイレクトはloginへ）
   useEffect(() => {
     const auth = localStorage.getItem('gptl-auth');
     if (auth === 'ok') {
       setAuthorized(true);
     } else {
-      router.push('/admin'); // 未ログインならadminトップに戻す
+      router.push('/admin/login');
     }
-    setLoadingAuth(false);
+    setChecking(false);
   }, [router]);
+
+  useEffect(() => {
+    if (authorized) {
+      fetchQuestions();
+    }
+  }, [authorized]);
 
   const fetchQuestions = async () => {
     const snapshot = await getDocs(ref);
@@ -38,12 +43,6 @@ export default function QuestionAdminPage() {
     setQuestions(data);
     setLoading(false);
   };
-
-  useEffect(() => {
-    if (authorized) {
-      fetchQuestions();
-    }
-  }, [authorized]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -53,16 +52,16 @@ export default function QuestionAdminPage() {
     e.preventDefault();
     if (!form.ja || !form.en) return;
     await addDoc(ref, form);
-    setForm({ ja: "", en: "" });
+    setForm({ ja: '', en: '' });
     fetchQuestions();
   };
 
   const handleDelete = async (id) => {
-    await deleteDoc(doc(db, "questions", id));
+    await deleteDoc(doc(db, 'questions', id));
     fetchQuestions();
   };
 
-  if (loadingAuth || !authorized) return null;
+  if (checking || !authorized) return null;
 
   return (
     <main className="p-8">
