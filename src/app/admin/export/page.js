@@ -1,66 +1,48 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { db } from "@/lib/firebase";
-import { collection, getDocs } from "firebase/firestore";
-import questions from "@/data/questions.json";
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { db } from '@/lib/firebase';
+import { collection, getDocs } from 'firebase/firestore';
 
-export default function AdminExportPage() {
+export default function ExportPage() {
+  const [authorized, setAuthorized] = useState(false);
+  const [checking, setChecking] = useState(true);
   const [responses, setResponses] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
-    const fetchData = async () => {
-      const snapshot = await getDocs(collection(db, "responses"));
-      const data = snapshot.docs.map((doc) => doc.data());
-      setResponses(data);
-      setLoading(false);
-    };
+    const auth = localStorage.getItem('gptl-auth');
+    if (auth === 'ok') {
+      setAuthorized(true);
+    } else {
+      router.push('/admin/login');
+    }
+    setChecking(false);
+  }, [router]);
 
-    fetchData();
-  }, []);
+  useEffect(() => {
+    if (authorized) {
+      getDocs(collection(db, 'responses')).then(snapshot => {
+        const data = snapshot.docs.map(doc => doc.data());
+        setResponses(data);
+      });
+    }
+  }, [authorized]);
 
-  const exportCSV = () => {
-    const headers = ["No", ...questions.map((q, i) => `${i + 1}. ${q.ja}`)];
-    const rows = responses.map((r, i) => [i + 1, ...r.answers]);
-    const csv = [headers, ...rows]
-      .map((row) => row.map((cell) => `"${cell}"`).join(","))
-      .join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", "responses.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  if (checking || !authorized) return null;
 
   return (
     <main className="p-8">
-      <h1 className="text-2xl font-bold mb-6">回答データのエクスポート</h1>
-
-      {loading ? (
-        <p>読み込み中...</p>
-      ) : (
-        <>
-          <button
-            onClick={exportCSV}
-            className="mb-6 px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          >
-            CSVとしてダウンロード
-          </button>
-
-          <ul className="space-y-2 text-sm">
-            {responses.map((r, i) => (
-              <li key={i}>
-                回答 {i + 1}: {r.answers.join(", ")}
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
+      <h1 className="text-xl font-bold mb-6">回答のエクスポート</h1>
+      <p className="mb-4 text-sm text-gray-600">※今はダミーデータ構成。CSV出力などは後で追加可能。</p>
+      <ul className="space-y-2">
+        {responses.map((r, i) => (
+          <li key={i} className="border p-2 rounded text-sm">
+            回答{i + 1}: {JSON.stringify(r.answers)}
+          </li>
+        ))}
+      </ul>
     </main>
   );
 }
